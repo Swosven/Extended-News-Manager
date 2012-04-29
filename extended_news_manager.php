@@ -271,7 +271,7 @@ function edit_news($id) {
  */ 
 function save_news() {
 	$id = $_POST['post-title'];
-	$old_file = NEWS_DATA . $_POST['id'] . '.xml';
+	$old_file = NEWS_DATA . correction($_POST['id']) . '.xml';
 	// $file_name = urlencode($id); // ### correction() fix problem with special char in title
 	$file_name = correction($id);
 	// ### add the timestamp, and protect timestamped edited files
