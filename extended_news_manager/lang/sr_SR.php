@@ -74,7 +74,12 @@ $i18n = array(
   'S_SAVE_SUCC'	        => 'Pode&scaron;avanja su uspe&scaron;nu a&#382;urirana.',
   'COMMENTS_INFO'		=> 'Da bi mogli komtarisati na ovom Sajtu morate se prijaviti se na neki od socijalih servisa za komentare .',
   'S_RSS_ICO'			=> 'izaberite ikonicu za meni',
-  'RSS_DISABLED'		=> 'Trenutno RSS Feed je onemogu&#263;en.'
+  'RSS_DISABLED'		=> 'Trenutno RSS Feed je onemogu&#263;en.',
+  // need translation
+  'LOAD_RSS_ICO'		=> "Please first upload RSS Icons.",
+  'S_FEED_BYDATE' 		=> "Order feed by date of creation",
+  'STAMP_CONFIRM' 		=> "All files were renamed with datestamp.",
+  'STAMP_ERROR' 		=> "Impossible to rename all files. Check for identical filenames.",
 );
 ?>
 
