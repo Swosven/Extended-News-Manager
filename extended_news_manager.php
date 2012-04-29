@@ -1,25 +1,31 @@
 <?php
-
+/*
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+//*/
 /*
 Plugin Name: GetSimple Extended News Manager 
-Description: Extended News Manager with FANCY URL support, News RSS Feed,  News RSS Feed Menu, Latest News Menu, News Pagination. Orginal author Rogier Koppejan extended by Site Info Service Development Team
-Version: 2.0
-Author: Site Info Service Development Team
-Author URI: http://siteinfoservice.org
+Description: Extended News Manager with FANCY URL support, News RSS Feed,  News RSS Feed Menu, Latest News Menu, News Pagination. Orginal author Rogier Koppejan extended by Site Info Service Development Team, http://siteinfoservice.org
+Version: 3.0
+Author: sWosven 
 */
 
 
 # get correct id for plugin
 $thisfile = basename(__FILE__, '.php');
+define('THISFILE_ENM', $thisfile); 
+
+#load internationalization
+i18n_merge('extended_news_manager') || i18n_merge('extended_news_manager','en_US');
 
 # register plugin
 register_plugin(
   $thisfile,
-  'Extended News Manager',
-  '2.0',
+  i18n_r(THISFILE_ENM.'/PLUGINTITLE'), // 'Extended News Manager',
+  '3.0',
   'Site Info Service Development Team',
   '#',
-  'Extended News Manager with FANCY URL support, News RSS Feed,  News RSS Feed Menu, Latest News Menu, News Pagination. Orginal author Rogier Koppejan extended by Site Info Service Development Team',
+  i18n_r(THISFILE_ENM.'/PLUGINDESC'),
   'pages',
   'extended_news_manager'
 );
@@ -28,7 +34,7 @@ register_plugin(
 # hooks
 add_action('theme-header', 'news_css');
 add_action('header', 'admin_js');
-add_action('pages-sidebar', 'createSideMenu', array($thisfile, 'Extended News Manager'));
+add_action('pages-sidebar', 'createSideMenu', array($thisfile, i18n_r(THISFILE_ENM.'/PLUGINTITLE') ));
 
 
 
@@ -36,6 +42,7 @@ add_action('pages-sidebar', 'createSideMenu', array($thisfile, 'Extended News Ma
 # definitions
 define('NEWS_DATA', GSDATAPATH  . 'news/'); 
 define('NEWS_RSS',  GSDATAOTHERPATH . 'news_feed/feed.xml');
+define('NEWS_RSS_URL',  $SITEURL . 'news_feed/feed.xml'); // for feed link
 define('NEWS_RSS_DIR',  GSDATAOTHERPATH . 'news_feed/');
 define('SETTINGS_PATH', GSDATAOTHERPATH  . 'website.xml');
 define('PLUGIN_PATH', GSPLUGINPATH . 'extended_news_manager/');
@@ -44,10 +51,13 @@ define('SITE_URL', $SITEURL);
 define('PRETTY_URLS', $PRETTYURLS);
 define('SITE_NAME', $SITENAME);
 define('COMMENT_PROV', $SITEURL.'plugins/extended_news_manager/comm_prov/');
+if (file_exists(RSS_SETTINGS)){
+	$settings = getXML(RSS_SETTINGS);
+	define('ADD_STAMP', $settings->feed_by_date);
+}else {
+	define('ADD_STAMP', "");
+}
 
-
-#load internationalzation
-i18n_merge('extended_news_manager') || i18n_merge('extended_news_manager','en_US');
 
 ############################### ADMIN FUNCTIONS ################################
 
@@ -61,11 +71,11 @@ function extended_news_manager() {
 		$create_success = create_directory(NEWS_DATA);
 	 	sleep(5);
 		
-		if($create_success == false){		
-			echo '<h3>'. i18n_r('extended_news_manager/PLUGINTITLE') . '</h3><p>'. i18n_r('extended_news_manager/PLUGINCREATE_DIR_FAULT') .'</p>';			
-		 }else{		 
-			echo '<h3>'. i18n_r('extended_news_manager/PLUGINTITLE') . '</h3><p>'. i18n_r('extended_news_manager/CREATE_DIR_SUCC') .'</p>'; 
-		 }
+		if($create_success == false){
+			echo '<h3>', i18n_r('extended_news_manager/PLUGINTITLE'), '</h3><p>', i18n_r('extended_news_manager/PLUGINCREATE_DIR_FAULT'), '</p>';			
+		}else{
+			echo '<h3>', i18n_r('extended_news_manager/PLUGINTITLE'), '</h3><p>', i18n_r('extended_news_manager/CREATE_DIR_SUCC'), '</p>'; 
+		}
 	}
 	if (isset($_GET['edit'])) {
 		$id = empty($_GET['edit']) ? uniqid() : $_GET['edit'];
@@ -116,7 +126,7 @@ function news_overview() {
 	
 	$text = '
 	<label>'. i18n_r('extended_news_manager/PLUGINTITLE') . '</label>
-	<div class="edit-nav" >
+    <div class="edit-nav">
 		<a href="load.php?id=extended_news_manager&edit">'. i18n_r('extended_news_manager/NEWS_CREATE') .'</a>
 		<a href="load.php?id=extended_news_manager&settings">'. i18n_r('extended_news_manager/NEWS_SETTINGS') .'</a>
 		<a href="load.php?id=extended_news_manager">'. i18n_r('extended_news_manager/NEWS_OVERVIEW') .'</a>
@@ -134,7 +144,7 @@ function news_overview() {
 
 			$text .= '<tr>
 			<td>
-			  <a href="load.php?id=extended_news_manager&edit='. $id .'" title="'. i18n_r('extended_news_manager/NEWS_EDIT') . $title .'">
+			  <a href="load.php?id=extended_news_manager&edit='. $id .'" title="'. i18n_r('extended_news_manager/NEWS_EDIT') . str_replace('"', '&quot;', $title) .'">
 				'. $title .'
 			  </a>
 			</td>
@@ -142,7 +152,7 @@ function news_overview() {
 			  <span>'. $date .'</span>
 			</td>
 			<td class="delete">
-			  <a href="load.php?id=extended_news_manager&delete='. $id .'" class="delconfirm" title="'. i18n_r('extended_news_manager/NEWS_DELETE') .  $title .'?">
+			  <a href="load.php?id=extended_news_manager&delete='. $id .'" class="delconfirm" title="'. sprintf(i18n_r('extended_news_manager/NEWS_DELETE'), str_replace('"', '&quot;', $title)) .'">
 				X
 			  </a>
 			</td>
@@ -166,17 +176,18 @@ function news_overview() {
 function edit_news($id) {
 	$file_name = urlencode($id);
 	$file = NEWS_DATA . $file_name . '.xml';
+
 	$data = @getXML($file);
 	$title = @stripslashes($data->title);
 	$content = @stripslashes($data->content);
 	$excerpt = @stripslashes($data->excerpt);
 	
 	$text = '
-    <div class="edit-nav" >
+	<div class="edit-nav">
 		<a href="load.php?id=extended_news_manager&edit">'. i18n_r('extended_news_manager/NEWS_CREATE') .'</a>
 		<a href="load.php?id=extended_news_manager&settings">'. i18n_r('extended_news_manager/NEWS_SETTINGS') .'</a>
 		<a href="load.php?id=extended_news_manager">'. i18n_r('extended_news_manager/NEWS_OVERVIEW') .'</a>
-    <div class="clear"></div>
+	<div class="clear"></div>
 	</div>
 	<h3>';
 	
@@ -184,11 +195,11 @@ function edit_news($id) {
 		$text .= i18n_r('extended_news_manager/NEWS_CREATE');
 	}else{
 		$text .= i18n_r('extended_news_manager/NEWS_EDIT');
-	}   
-    $text .= '</h3>
+	}
+	$text .= '</h3>
 	<form class="largeform" action="load.php?id=extended_news_manager" method="post" accept-charset="utf-8">
 		<p><input name="id" type="hidden" value="'. $id .'" />
-    	<p><input class="text title" name="post-title" type="text" value="'. $title .'" /></p>
+		<p><input class="text title" name="post-title" type="text" value="'. str_replace('"', '&quot;', $title) .'" /></p>
 		<p><textarea class="extended_news_manager" name="post-content">'. $content .'</textarea></p>
 		<p>
 			<b>'. i18n_r('extended_news_manager/NEWS_EXCEPT') .'</b><br />
@@ -257,27 +268,44 @@ function edit_news($id) {
 /******************************************************* 
  * @function save_news
  * @action write $_POST data to a file
- */
+ */ 
 function save_news() {
 	$id = $_POST['post-title'];
-	$file_name = urlencode($id);
-	$file = NEWS_DATA . $file_name . '.xml';
+	$old_file = NEWS_DATA . $_POST['id'] . '.xml';
+	// $file_name = urlencode($id); // ### correction() fix problem with special char in title
+	$file_name = correction($id);
+	// ### add the timestamp, and protect timestamped edited files
+	if (ADD_STAMP == "on"){
+		$file = NEWS_DATA . time() . "_" . $file_name . '.xml';
+	}else{
+		$file =  NEWS_DATA . $file_name . '.xml';
+	}
+	/*
+	// no need of htmlentities since it's save as data (and better for RSS link)
 	$title = htmlentities($_POST['post-title'], ENT_QUOTES, 'UTF-8');
 	$content = htmlentities($_POST['post-content'], ENT_QUOTES, 'UTF-8');
 	$excerpt = htmlentities($_POST['post-excerpt'], ENT_QUOTES, 'UTF-8');
+	*/
+	$title = $_POST['post-title'];
+	$content = $_POST['post-content'];
+	$excerpt = $_POST['post-excerpt'];
 	
+	    // no dupplicated files, uptodate timestamp
+    if (is_file($old_file)) {
+    	rename($old_file, $file);
+    }
 	if (!file_exists($file)) {
 		$date = date('j M Y');
 	}else{
 		$data = @getXML($file);
 		$date = $data->date;
 	}
-	
-	$xml = @new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><item></item>');
-	$xml->addChild('title', empty($title) ? '(no title)' : $title);
-	$xml->addChild('date', $date);
-	$xml->addChild('content', $content);
-	$xml->addChild('excerpt', $excerpt);
+
+	$xml = @new SimpleXMLExtended('<?xml version="1.0" encoding="UTF-8"?><item></item>');
+    $xml->addChild('title')-> addCData(empty($title) ? '(no title)' : $title); // html_entity_decode($title));
+    $xml->addChild('date')-> addCData($date);
+    $xml->addChild('content')-> addCData($content);
+    $xml->addChild('excerpt')-> addCData($excerpt);
 	XMLsave($xml, $file);
 	
 	if (!is_writable($file)){
@@ -417,6 +445,14 @@ function settings(){
 					}
 	$text .= '</select>    
 	</p>
+		<br />
+		<p class="inline"><label for="feed_by_date" style="color: rgb(51, 51, 51);">'. i18n_r('extended_news_manager/S_FEED_BYDATE') . ' </label> 
+		&nbsp;&nbsp;&nbsp;<input type="checkbox" name="feed_by_date" id="feed_by_date"';
+
+		if($settings->feed_by_date == 'on'){
+			$text .= ' checked';
+		}
+		$text .= '></p>
 
 			<p id="post-private-wrap" class="inline"><label for="external_comments" style="color: rgb(51, 51, 51);">'. i18n_r('extended_news_manager/S_NEWS_COMM') . '</label> 
 			&nbsp;&nbsp;&nbsp;<input type="checkbox" name="external_comments" id="external_comments"';
@@ -450,7 +486,8 @@ function settings(){
 	}
 	
 	foreach($lang_array as $key=>$val){
-		if($val == strtolower($settings->feed_language)){
+		// if($val == strtolower($settings->feed_language)){ // ###
+		if(strtolower($val) == strtolower($settings->feed_language)){
 			$text .= '<option value="'.$val.'" selected="">'.$val.'</option>';
 		}else{
 			$text .= '<option value="'.$val.'">'.$val.'</option>';
@@ -498,32 +535,31 @@ function settings(){
 					$path_info = pathinfo($images_list[$i]);
 					
 					$im_link_thumb =  SITE_URL . 'data/thumbs/thumbsm.'; 
-					
-					if($path_info['extension'] == 'jpg' || $path_info['extension'] == 'jpeg' || $path_info['extension'] == 'png' || $path_info['extension'] == 'gif'){
+					// ### added isset($path_info['extension']) && 
+					if(isset($path_info['extension']) && ($path_info['extension'] == 'jpg' || $path_info['extension'] == 'jpeg' || $path_info['extension'] == 'png' || $path_info['extension'] == 'gif')){
 					
 						$images_name =  basename($images_list[$i]);
 
 						if($images_name ==  basename($settings->feed_image)){
 							$text .= '<option value="'. $images_name.'" selected="">'.$images_name.'</option>';
 							$selected_image_link =  $im_link_thumb . $images_name; 
-							
 						}else{
 							$text .= '<option value="'. $images_name.'">'.$images_name.'</option>';
 						}
 					}
 				}
-				
 			}else{
-				$text .= '<option value="default">Please first upload site image.</option>';
+				$text .= '<option value="default">'. i18n_r('extended_news_manager/OPTION_DEFAULT') . '</option>';
 			}
-			
+			// ### $selected_image_link not defined, some value added
+			$selected_image_link =  '../plugins/extended_news_manager/icons/rss_feed.gif';
 			$text .= '</select>
 			<p style="text-align: center; height: 60px; padding: 40px 0">
 			<img id="feed_im_prew" src="'.$selected_image_link.'" alt="rss-icon" />
 			</p>
 			</p>
 		
-	<p><label for="feed_icon">'. i18n_r('extended_news_manager/S_RSS_ICO') . ':</label>
+	<p><label for="feed_icon">'. i18n_r('extended_news_manager/S_RSS_ICO') . '</label>
 	<select class="text" id="feed_icon" name="feed_icon">';
 
 		$files = glob(PLUGIN_PATH . "icons/*.{jpg,jpeg,png,gif,bmp}", GLOB_BRACE);
@@ -537,15 +573,13 @@ function settings(){
 				if($images_name ==  $icon_rss){
 					$text .= '<option value="'. $ic_link . $images_name .'" selected="">'.$images_name.'</option>';
 					$selected_icon_link =  $ic_link. $images_name; 
-
 				}else{
 					$text .= '<option value="'. $ic_link . $images_name .'">'.$images_name.'</option>';
-				}				
+				}
 			}
 		}else{
-			$text .= '<option value="default">Please first upload RSS Icons.</option>';
+			$text .= '<option value="default">'. i18n_r('extended_news_manager/LOAD_RSS_ICO') . '</option>';
 		}
-	
 			$text .= '</select>
 			<p style="text-align: center; height: 60px; padding: 40px 0">
 			<img id="feed_ico_prew" src="'.$selected_icon_link.'" alt="rss-icon" />
@@ -553,23 +587,22 @@ function settings(){
 	
 	
 	
-	<br />
-	<p  class="inline"><label for="feed_enable" style="color: rgb(51, 51, 51);">'. i18n_r('extended_news_manager/S_RSS_ENABLE') . ' </label> 
-	&nbsp;&nbsp;&nbsp;<input type="checkbox" name="feed_enable" id="feed_enable"';
-
-	if($settings->feed_enable == 'on'){
-		$text .= ' checked';
-	}
-    
-	$text .= '></p>
+		<br />
+		<p  class="inline"><label for="feed_enable" style="color: rgb(51, 51, 51);">'. i18n_r('extended_news_manager/S_RSS_ENABLE') . ' </label> 
+		&nbsp;&nbsp;&nbsp;<input type="checkbox" name="feed_enable" id="feed_enable"';
+	
+		if($settings->feed_enable == 'on'){
+			$text .= ' checked';
+	    }
+		$text .= '></p>
+		</div>
+		<div class="clear"></div><br />
+			<p id="submit_line"><span><input type="submit" value="'. i18n_r('extended_news_manager/S_SAVE') . '" name="save_settings" id="save_settings"  class="submit" style="width: 200px;"></span> 
+			&nbsp;&nbsp;'. i18n_r('extended_news_manager/S_OR') . '&nbsp;&nbsp; <a href="load.php?id=extended_news_manager" class="cancel">'. i18n_r('extended_news_manager/S_CANCEL') . '</a>
+			</p>
+	</form>
 	</div>
-	<div class="clear"></div><br />
-		<p id="submit_line"><span><input type="submit" value="'. i18n_r('extended_news_manager/S_SAVE') . '" name="save_settings" id="save_settings"  class="submit" style="width: 200px;"></span> 
-		&nbsp;&nbsp;'. i18n_r('extended_news_manager/S_OR') . '&nbsp;&nbsp; <a href="load.php?id=extended_news_manager" class="cancel">'. i18n_r('extended_news_manager/S_CANCEL') . '</a>
-		</p>
-</form>
-</div>
-';
+	';
 	echo $text ;
 }
 
@@ -617,7 +650,8 @@ function settings_save(){
 		$news_page = 'news';
 	}
 	
-	$external_comments = htmlentities($_POST['external_comments'], ENT_QUOTES, 'UTF-8');
+	// ### added condition isset($_POST['external_comments'])
+	$external_comments =  (isset($_POST['external_comments'])) ? htmlentities($_POST['external_comments'], ENT_QUOTES, 'UTF-8') : "";
 	if(empty( $external_comments)){
 		$new_page = 'off';
 	}
@@ -660,8 +694,25 @@ function settings_save(){
 	if(empty( $feed_icon)){
 		$feed_icon =  SITE_URL . "plugins/extended_news_manager/icons/rss_feed.gif";
 	}
-  	$feed_enable = htmlentities($_POST['feed_enable'], ENT_QUOTES, 'UTF-8');
-
+	// ### added condition isset($_POST['feed_enable'])
+  	$feed_enable = (isset($_POST['feed_enable'])) ? htmlentities($_POST['feed_enable'], ENT_QUOTES, 'UTF-8') : "";
+  	
+	// ### added $_POST['feed_by_date']
+  	$feed_by_date = (isset($_POST['feed_by_date'])) ? htmlentities($_POST['feed_by_date'], ENT_QUOTES, 'UTF-8') : "";
+	if($feed_by_date == "on") {
+		if(add_datestamp()){
+		echo '<div class="updated">', i18n_r('extended_news_manager/STAMP_CONFIRM'), '</div>';
+    	}else{
+    		echo '<div class="error">', i18n_r('extended_news_manager/STAMP_ERROR'), '</div>';
+    	}
+	}else{
+		if(del_datestamp()){
+    		echo '<div class="updated">', i18n_r('extended_news_manager/STAMP_CONFIRM'), '</div>';
+    	}else{
+    		echo '<div class="error">', i18n_r('extended_news_manager/STAMP_ERROR'), '</div>';
+    	}
+	}
+	
   	$xml = @new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><item></item>');
   
 	$xml->addChild('menu_title', $menu_title);
@@ -682,12 +733,13 @@ function settings_save(){
 	$xml->addChild('feed_generator', $feed_generator);
 	$xml->addChild('feed_icon', $feed_icon);
 	$xml->addChild('feed_enable', $feed_enable);
+	$xml->addChild('feed_by_date', $feed_by_date);
 
-	XMLsave($xml, RSS_SETTINGS . 'settings.xml');
-	if (!is_writable(RSS_SETTINGS . 'settings.xml'))
-    	echo '<div class="error">'. i18n_r('extended_news_manager/S_SAVE_ERROR') . '</div>';
+	XMLsave($xml, RSS_SETTINGS ); // ### correction for settings.xmlsettings.xml
+	if (!is_writable(RSS_SETTINGS))
+    	echo '<div class="error">', i18n_r('extended_news_manager/S_SAVE_ERROR'), '</div>';
   	else
-    	echo '<div class="updated">'. i18n_r('extended_news_manager/S_SAVE_SUCC') . '</div>';
+    	echo '<div class="updated">', i18n_r('extended_news_manager/S_SAVE_SUCC'), '</div>';
 		
 	create_news_rss();
 	settings();
@@ -702,26 +754,32 @@ function settings_save(){
 function create_news_rss(){
 
 	$news = get_news(NEWS_DATA);
+	
 	$news = array_values($news);
 	if(!file_exists(NEWS_RSS)){
 		$create_success = create_directory(NEWS_RSS_DIR);
 	 	if(!$create_success){
-			echo '<h3>'. i18n_r('extended_news_manager/PLUGINTITLE') .'</h3><p>'. i18n_r('extended_news_manager/RSS_C_DIR_ERROR') .'</p>';
+			echo '<h3>', i18n_r('extended_news_manager/PLUGINTITLE'), '</h3><p>', i18n_r('extended_news_manager/RSS_C_DIR_ERROR'), '</p>';
 	 	}
-	 	
 	}
 	
-	$feed_settings = getXML(RSS_SETTINGS . 'settings.xml');
+	$feed_settings = getXML(RSS_SETTINGS); // ###
 
 	if($feed_settings->feed_enable == 'on'){
 		
 		$feed_title = $feed_settings->feed_title;
 		$feed_description = $feed_settings->feed_description;
-		$feed_date =  urlencode(date("D, d M Y H:i:s T", time()));
+		// ### depending of spec at http://feed2.w3.org/docs/rss2.html#sampleFiles
+		// $feed_date =  urlencode(date("D, d M Y H:i:s T", time()));
+		$feed_date =  date("D, d M Y H:i:s T", time());
 		$feed_image =  $feed_settings->feed_image;
 		$encoding  = $feed_settings->feed_encoding;
 		$language  = $feed_settings->feed_language;
-		$feed_link = NEWS_RSS;
+		// ### NEWS_RSS is invalid, it is like "N:\xampplite\htdocs\getsimple/data/other/news_feed/feed.xml"
+		// depending of spec at http://feed2.w3.org/docs/rss2.html#sampleFiles
+		// link 	The URL to the HTML website corresponding to the channel. 	http://www.goupstate.com/
+		// $feed_link = NEWS_RSS; 
+		$feed_link = NEWS_RSS_URL;
 		$generator = $feed_settings->feed_generator;
 		$version   = "2.0";
 		$num = $feed_settings->feed_num;
@@ -749,9 +807,8 @@ function create_news_rss(){
 		$rss .= "\t\t<generator>". $generator ."</generator>\n";
 		
 		//items
-
 		foreach($news as $news_item) {
-		$link = '';
+			$link = '';
 		    $id = basename($news_item, '.xml');
 			$data=getXML(NEWS_DATA . $news_item );
 	
@@ -807,7 +864,7 @@ function news_css(){
 		echo '<link href="'. $theme_css .'" rel="stylesheet">';
 	}else{
 		echo '<link href="'. $default_css .'" rel="stylesheet">';
-	}	
+	}
 }
 
 function admin_js(){
@@ -826,11 +883,13 @@ function show_news() {
 		$id = $_GET['news'];
 		$file_name = urlencode($id);
 		show_news_item($file_name);
-		
 	}else{
 		
     	$news = get_news(NEWS_DATA);
-		$settings = getXML(RSS_SETTINGS . 'settings.xml'); 
+		if (ADD_STAMP == "on"){
+				rsort($news); 
+		}
+		$settings = getXML(RSS_SETTINGS); // ### 
 		$num_news = stripslashes(htmlspecialchars_decode($settings->news_page_num));
 		if (!empty($news)) {
 			
@@ -867,9 +926,9 @@ function show_news() {
 function show_news_item($id, $excerpt=FALSE) {
 
   $file = NEWS_DATA . $id. '.xml';
-  $plugin_settings = getXML(RSS_SETTINGS . 'settings.xml');
+  $plugin_settings = getXML(RSS_SETTINGS); // ###
 
-  $data = getXML($file);
+  $data = (is_file($file)) ? getXML($file) : ""; // ### added condition
   if (!empty($data)) {
     $date = $data->date;
     $title = stripslashes(htmlspecialchars_decode($data->title, ENT_QUOTES));
@@ -896,11 +955,10 @@ function show_news_item($id, $excerpt=FALSE) {
         	$text .= '<p class="ext_news_link"><a href="'. $url .'">'. i18n_r('extended_news_manager/NEWS_READ_MORE') .'</a></p>';
 	
 	  }elseif (!$excerpt){
-       		$text .= '<div class="ext_news_permanent"><b>'. i18n_r('extended_news_manager/NEWS_PERMANENT') .':</b> <span class="news_permanent_link"><a href="'. $url .'">'. $url .'</a></span></div>';
+       		$text .= '<div class="ext_news_permanent"><b>'. i18n_r('extended_news_manager/NEWS_PERMANENT') .'</b> <span class="news_permanent_link"><a href="'. $url .'">'. $url .'</a></span></div>';
 	  }
 	      $configfile=GSDATAOTHERPATH . 'external_comments.xml';
 		  $external_comments = getXML($configfile); 
-
        if (isset($_GET['news']) && $plugin_settings->external_comments == 'on' && isset($external_comments->provider)) {
             $text .= '<div class="ext_news_comments">
 			<div class="ex_comments">'. i18n_r('extended_news_manager/COMMENTS_INFO') .'</div>
@@ -921,7 +979,7 @@ function show_news_item($id, $excerpt=FALSE) {
 		}  
     $text .= '</div>';
 
-	} else {
+	}else{
 		$text .= ' <p>'. i18n_r('extended_news_manager/NEWS_NOEXIST') .'</p>';
   	}
 	echo  $text;
@@ -934,7 +992,7 @@ function show_news_item($id, $excerpt=FALSE) {
  * @action provides links to navigate between news pages
  */
 function show_navigation($index, $n, $count_pages=false) {
-  	$settings = getXML(RSS_SETTINGS . 'settings.xml'); 
+  	$settings = getXML(RSS_SETTINGS); // ###
 	$base_url = get_page_url(TRUE);
     $url = preg_match('/\?/', $base_url) ? '&page=' : '?page=';
 	$text = '';
@@ -950,9 +1008,7 @@ function show_navigation($index, $n, $count_pages=false) {
 			}else{
 				$path = $base_url . $url . ($index+1); 
 			}
-	
 			$text .=  $path .'">'. i18n_r('extended_news_manager/NEWS_PAG_OLD') .'</a></div>';
-	
 		}
 	
 		if ($index > 0) {
@@ -964,9 +1020,7 @@ function show_navigation($index, $n, $count_pages=false) {
 			}else{
 				$path = ($index > 1) ? $base_url .$url . ($index-1) : substr($base_url .$url, 0, -6); 
 			}
-		
 			$text .= $path .'">'. i18n_r('extended_news_manager/NEWS_PAG_NEW') .'</a></div>';
-
   		}
 		$text .= '</div><br />';
 		
@@ -977,8 +1031,7 @@ function show_navigation($index, $n, $count_pages=false) {
 			$path =  $base_url . "/news:page-"; 
 		}else{
 			$path =  $base_url .$url ; 
-		}
-			
+		}	
 		$text .= '<div class="paginate"><div class="ext_news_paginate">';
 		for ($i = 0; $i < $paginate_num; $i++) {
 
@@ -997,12 +1050,15 @@ function show_navigation($index, $n, $count_pages=false) {
  * @action displays news news on theme/site page
  */
 function list_news(){
-	$plugin_settings = getXML(RSS_SETTINGS . 'settings.xml');
+	$plugin_settings = getXML(RSS_SETTINGS); // ###
 	$news = get_news(NEWS_DATA);
 	
     if (!empty($news)) {
+		if (ADD_STAMP == "on"){
+			rsort($news); 
+		}
 
-	$text = '
+		$text = '
      <h2>'.  ucwords($plugin_settings->menu_title) .'</h2>
      <div class="ext_news_latest">
     	<div class="ext_news_list">';
@@ -1029,13 +1085,11 @@ function list_news(){
 		}else{
 			$link = "news=$id";
 		}
-		
 		$url = url_builder($link, $plugin_settings->news_page);
 
-	
         $text .= '<div class="ext_news_list_items">-<a href="'. $url .'">'.$cut_title.'</a></div>';
 	   
-		if(!empty($data->excerpt)){		
+		if(!empty($data->excerpt)){	
 			$cut_except = strip_tags($data->excerpt);
 			
 	  	 	if (strlen($cut_except) > $plugin_settings->menu_content_lenght){
@@ -1046,13 +1100,10 @@ function list_news(){
 					$cut_except = substr($cut_except, 0, stripslashes(htmlspecialchars_decode($plugin_settings->menu_content_lenght))).' ...';
 				}
 	   		}
-		
 	   		$text .= '<div class="ext_news_short">'.$cut_except.'</div>';
-	   
 		}
 	}
-     
-  $text .= '</div></div>';
+  	$text .= '</div></div>';
     }
 	echo $text;
 }
@@ -1064,7 +1115,7 @@ function list_news(){
  * @action create rss feed link just add as page template
  */
 function rss_feed() {
-  	$settings = getXML(RSS_SETTINGS . 'settings.xml'); 
+  	$settings = getXML(RSS_SETTINGS); // ###
 	if($settings->feed_enable == 'on'){
 		$rss = file_get_contents(NEWS_RSS);
 		echo $rss;
@@ -1079,14 +1130,14 @@ function rss_feed() {
  */
 function rss_link(){
 	
-  	$settings = getXML(RSS_SETTINGS . 'settings.xml'); 
+  	$settings = getXML(RSS_SETTINGS); // ### 
 
 	if(PRETTY_URLS == '1'){
 		$feed_url = SITE_URL . 'rss';
 	}else{
 		$feed_url = SITE_URL . 'index.php?id=rss';
 	}
-	echo '<a href="'. $feed_url .'"><img src="'. $settings->feed_icon  .'" alt="rss_feed" /></a>';
+	echo '<a href="', $feed_url, '"><img src="', $settings->feed_icon, '" alt="rss_feed" /></a>';
 }
 
 
@@ -1097,17 +1148,68 @@ function rss_link(){
  * @returns a list of news in the folder NEWS_DATA
  */
 function get_news($path) {
-  $news = array();
-  $files = getFiles($path);
-  foreach ($files as $file) {
-    if (is_file($path . $file) && preg_match("/.xml$/", $file)) {
-      $news[] = $file;
-    }
-  }
-  sort($news);
-  return $news;
+	$news = array();
+	$files = getFiles($path);
+	foreach ($files as $file) {
+		if (is_file($path . $file) && preg_match("/.xml$/", $file)){
+			$news[] = $file;
+		}
+	}
+	sort($news);
+	return $news;
 }
 
+/*******************************************************
+ * @function check_datestamp
+ * @check if name of news in the folder NEWS_DATA begin with datestamp 
+ */
+ 
+function check_datestamp($file) {
+	if (is_file(NEWS_DATA . $file) && preg_match("/.xml$/", $file)){
+			// filectime = 1335690880
+			$test = (strlen(basename($file,'.xml')) > 10) ? substr($file, 0, 9) : "";
+			if(empty($test) || !is_numeric($test)){
+				return false;
+			}else{
+				return true;
+			}
+		}
+}
+/*******************************************************
+ * @function add_datestamp
+ * @check add datestamp_ to name of news in the folder NEWS_DATA  
+ * TODO error msg if files can't be renamed
+ */
+function add_datestamp() {
+	$files = getFiles(NEWS_DATA);
+	$error = true;
+	foreach ($files as $file) {
+		if(!check_datestamp($file)){
+			if (rename(NEWS_DATA.$file, NEWS_DATA.filectime(NEWS_DATA.$file)."_".$file) === false){
+				$error = false;
+			}
+		}
+	}
+	return $error;
+}
+/*******************************************************
+ * @function del_datestamp
+ * @check add datestamp_ to name of news in the folder NEWS_DATA  
+ * TODO error msg if files can't be renamed
+ */
+function del_datestamp() {
+	$files = getFiles(NEWS_DATA);
+	$error = true;
+	foreach ($files as $file) {
+		if(check_datestamp($file)){
+			$new_file = substr($file, 11, strlen($file));
+			if (!is_file(NEWS_DATA.$new_file)) {
+				if (rename(NEWS_DATA.$file, NEWS_DATA.$new_file) === false) $error = false;
+			}
+		}
+	}
+	return $error;
+}
 /*******************************************************
  * @function url_builder
  * param $url_segment - hods data for URL build
@@ -1123,3 +1225,12 @@ function url_builder($segment, $holder_page){
 	return $url;
 }
 
+// ### fix problem with special char in title
+function correction($filename) {
+	if (isset($i18n['TRANSLITERATION']) && is_array($translit=$i18n['TRANSLITERATION']) && count($translit>0))
+	$filename = str_replace(array_keys($translit),array_values($translit),$filename);
+
+	$filename = to7bit($filename, "UTF-8");
+	$filename = clean_url($filename); //old way
+	return $filename;
+}
