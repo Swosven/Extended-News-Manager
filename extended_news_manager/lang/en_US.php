@@ -5,6 +5,7 @@
  */
 $i18n = array(
   'PLUGINTITLE'    		=> 'Extended News Manager',
+  'PLUGINDESC' 			=> 'Extended News Manager with FANCY URL support, News RSS Feed,  News RSS Feed Menu, Latest News Menu, News Pagination. Orginal author Rogier Koppejan extended by Site Info Service Development Team',
   'CREATE_DIR_FAULT'    => 'It is not possible to create directory "<i>GSDATAPATH/news</i>"
 							It is required for this plugin to function properly.
 							Please create it manually and make sure it is writable.',
@@ -13,7 +14,7 @@ $i18n = array(
   'NEWS_SETTINGS'       => 'News Settings',
   'NEWS_OVERVIEW'       => 'News Overview',
   'NEWS_EDIT'           => 'Edit News:',
-  'NEWS_DELETE'         => 'Delete News:',
+  'NEWS_DELETE'         => 'Delete News: %s?',
   'NEWS_DELETE_ERROR'   => 'Unable to delete the news item.',
   'NEWS_DELETE_SUCC'    => 'The news item has been deleted.',
   'NEWS_SAVE'           => 'Save News',
@@ -26,7 +27,7 @@ $i18n = array(
   'NEWS_EXCEPT_HELP'    => 'Excerpts are <i>optional</i> hand-crafted summaries of your news content. Also they will be shown in RSS Feed.',
   'NEWS_DATE'           => 'Posted on',
   'NEWS_READ_MORE'      => 'Read more',
-  'NEWS_PERMANENT'      => 'Permalink',
+  'NEWS_PERMANENT'      => 'Permalink:',
   'NEWS_PAG_OLD'        => '&larr; Older News',
   'NEWS_PAG_NEW'        => 'Newer News &rarr;',
   
@@ -73,8 +74,13 @@ $i18n = array(
   'S_CANCEL'	        => 'Cancel',
   'S_SAVE_ERROR'	    => 'Unable to update Settings to file.',
   'S_SAVE_SUCC'	        => 'Settings has been succesfully updated.',
-  'COMMENTS_INFO'		=>  'Login with some of social network comments serivce to be able to post comments.',
-  'S_RSS_ICO'			=> 'choose menu icon',
+  'COMMENTS_INFO'		=> 'Login with some of social network comments serivce to be able to post comments.',
+  'OPTION_DEFAULT'		=> 'Please first upload site image.',
+  'S_RSS_ICO'			=> 'choose menu icon:',
   'RSS_DISABLED'		=> 'At this moment RSS Feed is disabled.'
+  'LOAD_RSS_ICO'		=> "Please first upload RSS Icons.",
+  'S_FEED_BYDATE' 		=> "Order feed by date of creation",
+  'STAMP_CONFIRM' 		=> "All files were renamed with datestamp.",
+  'STAMP_ERROR' 		=> "Impossible to rename all files. Check for identical filenames.",
 );
 ?>
